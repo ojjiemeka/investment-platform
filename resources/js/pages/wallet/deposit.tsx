@@ -1,13 +1,9 @@
-import AppLayout from '@/layouts/app-layout';
-import { Head } from '@inertiajs/react';
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {  CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Copy, AlertCircle, CheckCircle2 } from "lucide-react";
 import { useState } from "react";
-import BackButton from '@/components/back-button';
-import { BreadcrumbItem } from '@/types';
 
 // Sample wallet addresses - replace with your actual addresses
 const walletAddresses = {
@@ -16,12 +12,6 @@ const walletAddresses = {
   usdt: "0x8A9424745056Eb399FD19a0EC26A14316684e274"
 };
 
-const breadcrumbs: BreadcrumbItem[] = [
-    {
-        title: 'Deposit',
-        href: '/Deposit',
-    },
-];
 
 export default function DepositPage() {
   const [copiedAddress, setCopiedAddress] = useState<string | null>(null);
@@ -46,15 +36,10 @@ export default function DepositPage() {
   };
 
   return (
-    <AppLayout breadcrumbs={breadcrumbs}>
-      <Head title="Crypto Deposit" />
-      <BackButton />
-      
-      <div className="flex h-full flex-col items-center gap-4 rounded-xl p-4">
-        <Card className="w-full max-w-2xl">
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl">Deposit Cryptocurrency</CardTitle>
-            <CardDescription>
+    <>
+    <CardHeader className="text-center">
+            {/* <CardTitle className="text-2xl"></CardTitle> */}
+            <CardDescription className='mt-4'>
               Send crypto to the following addresses to fund your account
             </CardDescription>
           </CardHeader>
@@ -113,8 +98,7 @@ export default function DepositPage() {
               </ul>
             </div>
           </CardContent>
-        </Card>
-      </div>
-    </AppLayout>
+    </>
+     
   );
 }

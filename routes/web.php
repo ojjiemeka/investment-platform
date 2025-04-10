@@ -22,7 +22,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/wallet/withdrawal', [AuthPagesController::class, 'withdrawal'])->name('wallet.withdraw');
     Route::get('/wallet/request', [AuthPagesController::class, 'deposit'])->name('wallet.deposit');
     Route::get('/wallet/external', [AuthPagesController::class, 'externalAccounts'])->name('wallet.external');
-    Route::get('/activity', [AuthPagesController::class, 'activity'])->name('activity');
+    Route::get('/wallet/activity', [AuthPagesController::class, 'activity'])->name('activity');
+    Route::get('/wallet/transactions', [AuthPagesController::class, 'makeTransactions'])->name('makeTransactions');
      // You will later add POST routes for handling the actual deposit/withdrawal actions
     // Route::post('/deposit', [WalletController::class, 'storeDeposit'])->name('wallet.deposit.store');
 

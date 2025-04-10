@@ -20,17 +20,17 @@ const mainNavItems: NavItem[] = [
     },
     {
         title: 'Send and Request',
-        href: '/transactions',
+        href: '/wallet/transactions',
         icon: Send,
     },
     {
         title: 'Investments',
-        href: '/investments',
+        href: '/wallet/investments',
         icon: ChartLine,
     },
     {
         title: 'Activity',
-        href: '/activity',
+        href: '/wallet/activity',
         icon: Cog,
     },
 ];

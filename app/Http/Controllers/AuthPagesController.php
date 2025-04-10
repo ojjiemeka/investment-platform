@@ -48,4 +48,14 @@ class AuthPagesController extends Controller
     {
         return Inertia::render('wallet/activity');
     }
+
+    public function makeTransactions()
+    {
+        return Inertia::render('wallet/transactions');
+    }
+
+    public function investments()
+    {
+        return Inertia::render('wallet/investments');
+    }
 }

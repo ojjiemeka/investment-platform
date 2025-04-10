@@ -8,7 +8,7 @@ import { Head } from '@inertiajs/react';
 const breadcrumbs: BreadcrumbItem[] = [
     {
         title: 'Activity',
-        href: '/Activity',
+        href: '/activity',
     },
 ];
 
@@ -58,14 +58,7 @@ const invoices = [
 ];
 
 export default function Activity() {
-    // Format currency
-    const formatCurrency = (value: number): string => {
-        return new Intl.NumberFormat('en-US', {
-            style: 'currency',
-            currency: 'USD',
-            maximumFractionDigits: 2,
-        }).format(value);
-    };
+    
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
