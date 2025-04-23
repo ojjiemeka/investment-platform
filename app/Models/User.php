@@ -17,10 +17,14 @@ class User extends Authenticatable
      *
      * @var list<string>
      */
-    protected $fillable = [
+     // Define the fillable fields for mass-assignment
+     protected $fillable = [
         'name',
         'email',
         'password',
+        'role',         // 'user' or 'admin'
+        'is_restricted',
+        'is_active',
     ];
 
     /**
@@ -44,5 +48,37 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+     // Relationships
+
+    // A user can have many portfolios.
+    public function portfolios()
+    {
+        return $this->hasMany(Portfolio::class);
+    }
+
+    // A user can have many bank accounts (official records)
+    public function bankAccounts()
+    {
+        return $this->hasMany(BankAccount::class);
+    }
+
+    // A user can make many bank account requests.
+    public function bankAccountRequests()
+    {
+        return $this->hasMany(BankAccountRequest::class);
+    }
+
+    // A user can have many history records (deposits and withdrawals).
+    public function histories()
+    {
+        return $this->hasMany(History::class);
+    }
+
+    // A user can receive many notifications.
+    public function notifications()
+    {
+        return $this->hasMany(Notification::class, 'to_user_id');
     }
 }

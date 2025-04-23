@@ -17,7 +17,11 @@ return new class extends Migration
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
-            $table->rememberToken();
+            // Controls login restriction and deactivation
+            $table->boolean('is_restricted')->default(false);
+            $table->boolean('is_active')->default(true);
+            // Distinguish between regular users and admins
+            $table->enum('role', ['user', 'admin'])->default('user');
             $table->timestamps();
         });
 

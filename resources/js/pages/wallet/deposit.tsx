@@ -62,12 +62,12 @@ export default function DepositPage() {
               
               {Object.entries(walletAddresses).map(([network, address]) => (
                 <TabsContent key={network} value={network} className="space-y-4">
-                  <div className="flex flex-col items-center justify-center">
+                  <div className="flex flex-col items-center justify-center text-white dark:text-white">
                     <div className="text-lg font-semibold mb-2 capitalize">{network} Address</div>
                     {renderQrCode(address)}
                     
                     <div className="relative w-full">
-                      <div className="p-3 bg-zinc-900 text-neutral-300 rounded-md font-mono text-sm break-all">
+                      <div className="p-3 bg-gray-800 dark:bg-zinc-900 text-neutral-300 rounded-md font-mono text-sm break-all">
                         {address}
                       </div>
                       <Button
@@ -88,7 +88,7 @@ export default function DepositPage() {
               ))}
             </Tabs>
             
-            <div className="mt-8 space-y-4">
+            <div className="mt-8 space-y-4 text-white dark:text-white">
               <h3 className="font-medium">Important Notes:</h3>
               <ul className="list-disc pl-5 space-y-2 text-sm text-gray-600">
                 <li>Your deposit will be credited after 2 network confirmations</li>

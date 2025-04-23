@@ -52,7 +52,7 @@ const formatCurrency = (value: number): string => {
 export default function WithdrawalPage() {
     return (
         <>
-            <div className="space-y-3">
+            <div className="space-y-3 text-white dark:text-white">
                 <div>
                     <div className="mt-8 mb-8 flex justify-between">
                         <h1 className="text-2xl font-bold">Balance:</h1>
@@ -115,7 +115,7 @@ export default function WithdrawalPage() {
                     {/* </Button> */}
                 </div>
 
-                <Button className="w-full">Send Payment</Button>
+                <Button variant="default" className="w-full bg-blue-800 dark:text-white hover:bg-zinc-700">Send Payment</Button>
             </div>
         </>
     );

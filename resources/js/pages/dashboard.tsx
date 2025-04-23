@@ -1,38 +1,22 @@
+import CryptoBalance from '@/components/crypto-balance'; // Import the new component
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChartConfig, ChartContainer, ChartLegend, ChartLegendContent, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head } from '@inertiajs/react';
-import { ArrowDown, ArrowUpRight, FileText, Plus } from 'lucide-react';
 import React from 'react';
 import { Area, AreaChart, CartesianGrid, XAxis } from 'recharts';
 
 // Define TypeScript interfaces for type safety
-interface DashboardProps {
-    totalRevenue?: number;
-    percentageChange?: number;
-}
+// Use the CryptoItem[] type for cryptoData
 
-interface BankAccount {
-    name: string;
-    amount: number;
-    status: string;
-    logo?: React.ReactNode;
-}
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
         title: 'Dashboard',
         href: '/dashboard',
     },
-];
-
-const actions = [
-    { icon: <ArrowUpRight size={20} />, label: 'Send' },
-    { icon: <ArrowDown size={20} />, label: 'Request' },
-    { icon: <FileText size={20} />, label: 'Split bill' },
-    { icon: <Plus size={20} />, label: 'Top up' },
 ];
 
 const chartData = [
@@ -143,37 +127,19 @@ const chartConfig = {
     },
 } satisfies ChartConfig;
 
-// Bank accounts data
-const bankAccounts: BankAccount[] = [
-    {
-        name: 'HSBC Holdings plc',
-        amount: 20456.0,
-        status: 'Active',
-        logo: 'HSBC', // We'll render a placeholder for this
+export default function Dashboard({
+    cryptoData = {
+        btc: {
+            name: 'Bitcoin',
+            symbol: 'BTC',
+            price: 29958.0,
+            marketCap: 843333717777,
+            percentChange24h: 0,
+            volume24h: 0,
+        },
     },
-    {
-        name: 'Deutsche Bank',
-        amount: 20456.0,
-        status: 'Active',
-        logo: 'DB', // We'll render a placeholder for this
-    },
-    {
-        name: 'UBS Group AG',
-        amount: 20456.0,
-        status: 'Active',
-        logo: 'UBS', // We'll render a placeholder for this
-    },
-];
-
-export default function Dashboard({ totalRevenue = 24320.75, percentageChange = 35 }: DashboardProps) {
+}: DashboardProps) {
     // Format currency
-    const formatCurrency = (value: number): string => {
-        return new Intl.NumberFormat('en-US', {
-            style: 'currency',
-            currency: 'USD',
-            maximumFractionDigits: 2,
-        }).format(value);
-    };
 
     const [timeRange, setTimeRange] = React.useState('90d');
     const filteredData = chartData.filter((item) => {
@@ -190,25 +156,19 @@ export default function Dashboard({ totalRevenue = 24320.75, percentageChange = 
         return date >= startDate;
     });
 
-    const WalletBalance = ({ balance, currency, subtitle }: { balance: number, currency: string, subtitle: string }) => {
+    const WalletBalance = ({ balance, currency, subtitle }: { balance: number; currency: string; subtitle: string }) => {
         return (
-          <div className=" rounded-xl p-4"> 
-            <div className=" items-center justify-between">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-3xl text-gray-400">{currency}</span>
-                <div className="text-5xl font-bold text-white">{balance.toLocaleString()}</div> 
-              </div>
-              <div className="text-sm text-gray-500">
-                {subtitle}
+            <div className="rounded-xl p-4">
+                <div className="items-center justify-between">
+                    <div className="mb-2 flex items-center gap-2">
+                        <span className="text-3xl text-gray-400">{currency}</span>
+                        <div className="text-5xl font-bold text-black dark:text-white">{balance.toLocaleString()}</div>
+                    </div>
+                    <div className="text-sm text-gray-500">{subtitle}</div>
+                </div>
             </div>
-            </div>
-          </div>
         );
-      };
-
-    const moneyIn = 14320.75;
-    const moneyOut = 9320.75;
-    const totalSaving = 12678.0;
+    };
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -216,7 +176,10 @@ export default function Dashboard({ totalRevenue = 24320.75, percentageChange = 
             <div className="flex h-full flex-col gap-4 rounded-xl p-4">
                 {/* First row of cards */}
                 <div className="grid auto-rows-min gap-4 md:grid-cols-2">
-                    <WalletBalance balance={47590} currency="$" subtitle="Your Take 7.4% Less Than Past 2 Months" />
+                    <Card className="w-full">
+                        <WalletBalance balance={47534590} currency="$" subtitle="Your Take 7.4% Less Than Past 2 Months" />
+                    </Card>
+                    <CryptoBalance cryptoData={cryptoData} />
                 </div>
 
                 {/* Income & Expenses Chart */}

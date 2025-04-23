@@ -33,6 +33,24 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
+        // Share user data with all Inertia responses
+        Inertia::share('auth.user', function () {
+            if (Auth::check()) {
+                return [
+                    'name' => Auth::user()->name,
+                    'email' => Auth::user()->email,
+                    'role' => Auth::user()->role,
+                ];
+            }
+            return null;
+        });
+
+        // Redirect based on user role
+        if (Auth::user()->role === 'admin') {
+            // Use the correct route name from your web.php
+            return redirect()->route('adminDashboard');
+        }
+
         return redirect()->intended(route('dashboard', absolute: false));
     }
 
