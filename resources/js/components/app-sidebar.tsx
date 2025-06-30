@@ -5,7 +5,7 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, Sid
 import { type NavItem } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
 import { PageProps as InertiaPageProps } from '@inertiajs/core';
-import { Send, ChartLine, LayoutGrid, Wallet, Cog } from 'lucide-react';
+import { Send, ChartLine, LayoutGrid, ChartCandlestick, Wallet, Cog, Landmark, Mail, House, FileText, BellRing } from 'lucide-react';
 import AppLogo from './app-logo';
 
 // Define the auth structure in the PageProps interface
@@ -24,27 +24,32 @@ const adminNavItems: NavItem[] = [
   {
     title: 'Admin Dashboard',
     href: '/wallet/admin/dashboard',
-    icon: LayoutGrid,
+    icon: House,
+  },
+  {
+    title: 'Portfoilios',
+    href: '/wallet/admin/requests',
+    icon: ChartCandlestick,
   },
   {
     title: 'Requests',
     href: '/wallet/admin/requests',
-    icon: LayoutGrid,
+    icon: FileText,
   },
   {
     title: 'Mail',
     href: '/wallet/admin/mail',
-    icon: LayoutGrid,
+    icon: Mail,
   },
   {
     title: 'Accounts',
     href: '/wallet/admin/accounts',
-    icon: LayoutGrid,
+    icon: Landmark,
   },
   {
     title: 'Notifications',
     href: '/wallet/admin/notifications',
-    icon: LayoutGrid,
+    icon: BellRing,
   },
 ];
 

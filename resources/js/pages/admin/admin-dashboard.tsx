@@ -3,13 +3,15 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head } from '@inertiajs/react';
 import { Button } from '@/components/ui/button';
-import { ChevronUp, Users as UsersIcon } from 'lucide-react'; // Renamed Users to UsersIcon to avoid conflict
-import { useState, useEffect } from 'react'; // Removed unused imports
+import { ChevronUp, User, Users as UsersIcon } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import CustomTable from '@/components/admin-table';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import AddUserButton from '@/components/new-user-form';
+import { router } from '@inertiajs/react';
+import DashboardStats from '@/components/dashboardStats'; // Import the new component
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -18,28 +20,41 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-// Define the structure of the user data expected by this component
-interface UserData {
-    id: string | number;
-    name: string; // User's name
-    email: string; // User's email
-    is_active: boolean; // User's active status from backend
-
-    // Field that may require additional backend changes to populate with real data
-    balance: number; // Placeholder unless backend provides aggregate balance
+// Define Portfolio interface
+interface Portfolio {
+    id: number;
+    user_id: number;
+    name?: string;
+    balance: number;
+    created_at: string;
+    updated_at: string;
 }
 
-// Define the structure of the users prop from Laravel Inertia pagination
+// Updated UserData interface to include portfolios
+interface UserData {
+    id: string | number;
+    name: string;
+    email: string;
+    is_active: boolean;
+    created_at: string;
+    // Portfolio-related fields
+    portfolios: Portfolio[];
+    portfolios_count?: number;
+    total_balance: number; // Calculated total balance from all portfolios
+}
+
+// Updated structure from Laravel backend
 interface UsersProp {
     data: {
         id: number;
         name: string;
         email: string;
         created_at: string;
-        is_active: boolean; // Assuming 'is_active' is selected by the backend
-        // Add other fields if your Laravel query selects them
+        is_active: boolean;
+        // Portfolio relationship data
+        portfolios: Portfolio[];
+        portfolios_count?: number;
     }[];
-    // Pagination link structure
     links: {
         url: string | null;
         label: string;
@@ -50,48 +65,91 @@ interface UsersProp {
     total: number;
 }
 
-// Define the props for the AdminDashboard component, including stats props
 interface AdminDashboardProps {
-    users: UsersProp; // Paginated user data from backend
-    totalUsersCount: number; // Total users count from backend
-    totalBankAccountsCount: number; // Total bank accounts count from backend
-    pendingRequestsCount: number; // Total pending requests count from backend
+    users: UsersProp;
+    totalUsersCount: number;
+    totalBankAccountsCount: number;
+    pendingRequestsCount: number;
+    totalPortfoliosCount?: number; // Add this if you're tracking total portfolios
 }
 
-export default function AdminDashboard({ users, totalUsersCount, totalBankAccountsCount, pendingRequestsCount }: AdminDashboardProps) {
-    // Map the incoming users data to the structure expected by the component state
-    const initialUsersList: UserData[] = users.data.map(user => ({
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        // created_at is still needed for the joinDate derivation if you re-add it later
-        created_at: user.created_at,
-        is_active: user.is_active, // Use actual data from backend
+// Helper function to calculate total portfolio balance
+const calculateTotalBalance = (portfolios: Portfolio[]): number => {
+    return portfolios?.reduce((total, portfolio) => total + (portfolio.balance || 0), 0) || 0;
+};
 
-        // These fields are not in the User model and require backend changes to populate
-        balance: 0.00, // Default value - adjust if your backend provides balance (e.g., from bankAccounts relationship)
-    }));
+// Helper function to format currency
+const formatCurrency = (amount: number): string => {
+    return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 2
+    }).format(amount);
+};
 
-    // State to manage the list of users displayed in the table
+export default function AdminDashboard({ 
+    users, 
+    totalUsersCount, 
+    totalBankAccountsCount, 
+    pendingRequestsCount,
+    totalPortfoliosCount 
+}: AdminDashboardProps) {
+    
+    // Debug: Log the received data to check portfolio structure
+    useEffect(() => {
+        console.log('=== DEBUGGING RECEIVED DATA ===');
+        console.log('Users data:', users);
+        console.log('First user:', users.data?.[0]);
+        console.log('First user portfolios:', users.data?.[0]?.portfolios);
+        console.log('============================');
+    }, [users]);
+
+    // Map the incoming users data with portfolio information
+    const initialUsersList: UserData[] = users.data.map(user => {
+        const totalBalance = calculateTotalBalance(user.portfolios || []);
+        
+        return {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            created_at: user.created_at,
+            is_active: user.is_active,
+            // Portfolio data
+            portfolios: user.portfolios || [],
+            portfolios_count: user.portfolios_count || user.portfolios?.length || 0,
+            total_balance: totalBalance,
+        };
+    });
+
+    // State management
     const [usersList, setUsersList] = useState<UserData[]>(initialUsersList);
-    // State to manage selected user IDs
     const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
-    // State to manage the currently viewed user details
     const [viewedUser, setViewedUser] = useState<UserData | null>(null);
-    // State to manage if the user details are being edited
     const [isEditing, setIsEditing] = useState(false);
-    // State to manage the data of the user currently being edited
     const [editedUser, setEditedUser] = useState<UserData | null>(null);
 
-    // Update usersList state if the users prop changes (e.g., pagination)
-    // This ensures the table updates when you navigate between pages
+    // Update usersList when users prop changes
     useEffect(() => {
-        setUsersList(initialUsersList);
-    }, [users.data]); // Dependency array includes users.data - re-run when data changes
+        const updatedList = users.data.map(user => {
+            const totalBalance = calculateTotalBalance(user.portfolios || []);
+            
+            return {
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                created_at: user.created_at,
+                is_active: user.is_active,
+                portfolios: user.portfolios || [],
+                portfolios_count: user.portfolios_count || user.portfolios?.length || 0,
+                total_balance: totalBalance,
+            };
+        });
+        setUsersList(updatedList);
+    }, [users.data]);
 
     // Toggle selection for a user by ID
     const toggleUserSelection = (id: string | number) => {
-        const idString = String(id); // Ensure consistency by working with string IDs
+        const idString = String(id);
         if (selectedUserIds.includes(idString)) {
             setSelectedUserIds(selectedUserIds.filter((userId) => userId !== idString));
         } else {
@@ -107,29 +165,24 @@ export default function AdminDashboard({ users, totalUsersCount, totalBankAccoun
     // Handle initiating the edit process for the viewed user
     const handleEditUser = () => {
         if (viewedUser) {
-            // Create a copy to edit
             setEditedUser({ ...viewedUser });
             setIsEditing(true);
         }
     };
 
-    // Handle changes in the edit form inputs (excluding status select)
-    // Use keyof UserData for type-safe field access
+    // Handle changes in the edit form inputs
     const handleEditUserChange = (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>, field: keyof UserData) => {
         if (editedUser) {
-             // Handle input and select changes
             const value = event.target.value;
-            // Only update if the field is not derived or handled separately (like status)
-            if (field !== 'is_active') { // is_active is handled by handleStatusChange
-                 setEditedUser({ ...editedUser, [field]: value as any }); // Use 'as any' temporarily for non-string fields if needed, or refine types
+            if (field !== 'is_active') {
+                setEditedUser({ ...editedUser, [field]: value as any });
             }
         }
     };
 
-     // Handle changes specifically for the status select, updating only is_active boolean
-     const handleStatusChange = (value: string) => {
+    // Handle status changes
+    const handleStatusChange = (value: string) => {
         if (editedUser) {
-            // Update only the is_active boolean based on the selected status string
             setEditedUser({
                 ...editedUser,
                 is_active: value === 'Active'
@@ -137,69 +190,102 @@ export default function AdminDashboard({ users, totalUsersCount, totalBankAccoun
         }
     };
 
-    // Handle submitting the edited user data
+    // Handle form submission
     const handleSubmit = () => {
         if (editedUser) {
-            // Here you would typically send the editedUser data to your backend
-            // You would likely send editedUser.id and editedUser.is_active
-            console.log("Submitted:", editedUser);
-            // Update the usersList state with the edited user
-            setUsersList(usersList.map(user =>
-                user.id === editedUser.id ? editedUser : user
-            ));
-            setViewedUser(editedUser); // Update the viewed user to show latest changes
-            setIsEditing(false); // Exit editing mode
+            const formData = {
+                id: editedUser.id,
+                name: editedUser.name,
+                email: editedUser.email,
+                is_active: editedUser.is_active,
+                status: editedUser.is_active ? 'Active' : 'Inactive'
+            };
+
+            console.log('=== FORM SUBMISSION ===');
+            console.log('Complete Form Data:', formData);
+            console.log('========================');
+
+            router.put(`/wallet/admin/users/${editedUser.id}`, {
+                name: editedUser.name,
+                email: editedUser.email,
+                is_active: editedUser.is_active,
+            }, {
+                onStart: () => {
+                    console.log('🚀 Starting backend submission...');
+                },
+                onSuccess: (response) => {
+                    console.log('✅ Backend submission successful!', response);
+                    
+                    setUsersList(usersList.map(user =>
+                        user.id === editedUser.id ? editedUser : user
+                    ));
+                    setViewedUser(editedUser);
+                    setIsEditing(false);
+                },
+                onError: (errors) => {
+                    console.error('❌ Backend submission failed:', errors);
+                },
+                onFinish: () => {
+                    console.log('🏁 Backend request finished');
+                }
+            });
         }
     };
 
-    // Handle adding a new user (e.g., from a modal form)
+    // Handle adding a new user
     const handleUserAdded = (newUser: UserData) => {
-        // Add the new user to the usersList array
         setUsersList([...usersList, newUser]);
     };
 
-    // Dashboard statistics data - now using props from the backend
+    // Dashboard statistics - now prepared for the DashboardStats component
     const dashboardStats = [
         {
             title: 'Total Users',
-            value: totalUsersCount.toLocaleString(), // Use prop data, formatted
-            change: '+47', // Placeholder - you might get this from backend too
-            icon: UsersIcon, // Using the renamed icon import
-            positive: true, // Placeholder
+            value: totalUsersCount.toLocaleString(),
+            change: '+47',
+            icon: UsersIcon,
+            positive: true,
         },
         {
             title: 'Total Bank Accounts',
-            value: totalBankAccountsCount.toLocaleString(), // Use prop data, formatted
-            change: '+72', // Placeholder
-            icon: UsersIcon, // Using the renamed icon import
-            positive: true, // Placeholder
+            value: totalBankAccountsCount.toLocaleString(),
+            change: '+72',
+            icon: UsersIcon,
+            positive: true,
         },
         {
             title: 'Pending requests',
-            value: pendingRequestsCount.toLocaleString(), // Use prop data, formatted
-            change: '-49', // Placeholder
-            icon: UsersIcon, // Using the renamed icon import
-            positive: false, // Placeholder
+            value: pendingRequestsCount.toLocaleString(),
+            change: '-49',
+            icon: UsersIcon,
+            positive: false,
         },
+        ...(totalPortfoliosCount !== undefined ? [{
+            title: 'Total Portfolios',
+            value: totalPortfoliosCount.toLocaleString(),
+            change: '+15',
+            icon: UsersIcon,
+            positive: true,
+        }] : []),
     ];
 
-    // Type annotation for tableHeaders
+    // Updated table headers
     const tableHeaders: React.ReactNode[] = [
         <div key="col-id" className='w-10'>#</div>,
         <div key="col-name" className="flex items-center space-x-1">
-            <span>Account Name</span> {/* Keeping "Account Name" as it fits the context of users having accounts */}
+            <span>Account Name</span>
             <Button variant="ghost" size="sm" className="h-5 w-5 p-0">
                 <ChevronUp className="h-3 w-3" />
             </Button>
         </div>,
         <div key="col-balance" className="flex items-center space-x-1">
-            <span>Balance &nbsp; ($)</span>
+            <span>Total Balance ($)</span>
             <Button variant="ghost" size="sm" className="h-5 w-5 p-0">
                 <ChevronUp className="h-3 w-3" />
             </Button>
         </div>,
-        <div key="col-email" className="hidden sm:table-cell flex items-center space-x-1">
-            <span>Email</span>
+        <div key="col-portfolios" className="hidden sm:table-cell flex items-center space-x-1">
+            <span>Portfolios</span>
             <Button variant="ghost" size="sm" className="h-5 w-5 p-0">
                 <ChevronUp className="h-3 w-3" />
             </Button>
@@ -210,33 +296,15 @@ export default function AdminDashboard({ users, totalUsersCount, totalBankAccoun
                 <ChevronUp className="h-3 w-3" />
             </Button>
         </div>,
+        <div key="col-actions">Actions</div>,
     ];
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="User Management" /> {/* Updated title */}
+            <Head title="User Management" />
             <div className="flex h-full flex-col gap-6 p-4 md:p-6">
-                {/* Dashboard Statistics Cards */}
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    {dashboardStats.map((stat, index) => (
-                        <Card key={index} className="bg-white shadow-sm dark:bg-zinc-800">
-                            <CardContent className="p-4 md:p-6">
-                                <div className="flex items-start justify-between">
-                                    <div className="space-y-1 md:space-y-2">
-                                        <div className="flex items-baseline">
-                                            {/* Use toLocaleString for number formatting */}
-                                            <span className="text-xl font-bold text-gray-900 md:text-2xl dark:text-gray-100">{stat.value}</span>
-                                        </div>
-                                        <p className="text-xs text-gray-500 md:text-sm dark:text-gray-400">{stat.title}</p>
-                                    </div>
-                                    <div className="rounded-lg bg-gray-100 p-2 dark:bg-gray-700">
-                                        <stat.icon className="h-4 w-4 text-gray-500 md:h-5 md:w-5 dark:text-gray-400" />
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    ))}
-                </div>
+                {/* Dashboard Statistics Cards - Now using the component */}
+                <DashboardStats stats={dashboardStats} />
 
                 <AnimatePresence mode="wait">
                     {viewedUser ? (
@@ -255,6 +323,40 @@ export default function AdminDashboard({ users, totalUsersCount, totalBankAccoun
                                     </Button>
                                 </div>
                                 <div className="p-4 space-y-4">
+                                    {/* Portfolio Summary Section */}
+                                    <div className="bg-gray-50 dark:bg-zinc-900 rounded-lg p-4">
+                                        <h3 className="text-lg font-semibold mb-3 text-gray-900 dark:text-gray-100">Portfolio Summary</h3>
+                                        <div className="grid grid-cols-2 gap-4 mb-4">
+                                            <div>
+                                                <p className="text-sm text-gray-500 dark:text-gray-400">Total Balance</p>
+                                                <p className="text-xl font-bold text-green-600">{formatCurrency(viewedUser.total_balance)}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-sm text-gray-500 dark:text-gray-400">Active Portfolios</p>
+                                                <p className="text-xl font-bold text-blue-600">{viewedUser.portfolios_count || 0}</p>
+                                            </div>
+                                        </div>
+                                        
+                                        {/* Individual Portfolios */}
+                                        {viewedUser.portfolios && viewedUser.portfolios.length > 0 && (
+                                            <div>
+                                                <h4 className="text-md font-medium mb-2 text-gray-800 dark:text-gray-200">Individual Portfolios</h4>
+                                                <div className="space-y-2">
+                                                    {viewedUser.portfolios.map((portfolio, index) => (
+                                                        <div key={portfolio.id} className="flex justify-between items-center p-2 bg-white dark:bg-zinc-800 rounded border">
+                                                            <span className="text-sm text-gray-700 dark:text-gray-300">
+                                                                {portfolio.name || `Portfolio ${index + 1}`}
+                                                            </span>
+                                                            <span className="font-semibold text-green-600">
+                                                                {formatCurrency(portfolio.balance)}
+                                                            </span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+
                                     {isEditing ? (
                                         <>
                                             <div className="space-y-1">
@@ -263,15 +365,6 @@ export default function AdminDashboard({ users, totalUsersCount, totalBankAccoun
                                                     value={editedUser?.name || ''}
                                                     onChange={(e) => handleEditUserChange(e, "name")}
                                                     placeholder="Account Name"
-                                                    className="bg-zinc-900 border border-zinc-700 rounded-md p-2 text-white"
-                                                />
-                                            </div>
-                                            <div className="space-y-1">
-                                                <label className="block text-sm font-medium text-gray-400">Balance</label>
-                                                <Input
-                                                    value={editedUser?.balance || 0}
-                                                    onChange={(e) => handleEditUserChange(e, "balance")}
-                                                    placeholder="Balance"
                                                     className="bg-zinc-900 border border-zinc-700 rounded-md p-2 text-white"
                                                 />
                                             </div>
@@ -286,7 +379,6 @@ export default function AdminDashboard({ users, totalUsersCount, totalBankAccoun
                                             </div>
                                             <div className="space-y-1">
                                                 <label className="block text-sm font-medium text-gray-400">Status</label>
-                                                {/* Derive value from editedUser?.is_active */}
                                                 <Select value={editedUser?.is_active ? 'Active' : 'Inactive'} onValueChange={handleStatusChange}>
                                                     <SelectTrigger className="w-full bg-zinc-900 border border-zinc-700 rounded-md p-2 text-white">
                                                         <SelectValue placeholder="Select Status" />
@@ -307,16 +399,11 @@ export default function AdminDashboard({ users, totalUsersCount, totalBankAccoun
                                                 <Input value={viewedUser?.name || ''} readOnly className="bg-zinc-900 border border-zinc-700 rounded-md p-2 text-white" />
                                             </div>
                                             <div className="space-y-1">
-                                                <label className="block text-sm font-medium text-gray-400">Balance</label>
-                                                <Input value={viewedUser?.balance || 0} readOnly className="bg-zinc-900 border border-zinc-700 rounded-md p-2 text-white" />
-                                            </div>
-                                            <div className="space-y-1">
                                                 <label className="block text-sm font-medium text-gray-400">Email</label>
                                                 <Input value={viewedUser?.email || ''} readOnly className="bg-zinc-900 border border-zinc-700 rounded-md p-2 text-white" />
                                             </div>
                                             <div className="space-y-1">
                                                 <label className="block text-sm font-medium text-gray-400">Status</label>
-                                                {/* Derive value from viewedUser?.is_active */}
                                                 <Input value={viewedUser?.is_active ? 'Active' : 'Inactive'} readOnly className="bg-zinc-900 border border-zinc-700 rounded-md p-2 text-white" />
                                             </div>
                                             <Button onClick={handleEditUser} className="w-full bg-blue-600 text-white hover:bg-zinc-700">Edit</Button>
@@ -331,8 +418,9 @@ export default function AdminDashboard({ users, totalUsersCount, totalBankAccoun
                             selectedItems={selectedUserIds}
                             setSelectedItems={setSelectedUserIds}
                             toggleItem={toggleUserSelection}
+                            pageType="dashboard"
                             title={"ACCOUNTS SUMMARY"}
-                            caption={"A list of your recent users."}
+                            caption={"A list of your recent users with portfolio information."}
                             headers={tableHeaders}
                             additionalButton={<AddUserButton onUserAdded={handleUserAdded} />}
                             onView={handleViewUser}

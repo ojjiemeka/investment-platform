@@ -7,10 +7,11 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
-import { Head } from '@inertiajs/react';
+import { Head, useForm } from '@inertiajs/react'; // Import useForm
 import { AnimatePresence, motion } from 'framer-motion';
-import { ChevronUp, Plus, Users } from 'lucide-react';
+import { ChevronUp, Plus, Users as UsersIcon, CreditCard, AlertCircle, Building } from 'lucide-react';
 import { useState } from 'react';
+import DashboardStats from '@/components/dashboardStats'; // Import the DashboardStats component
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -19,190 +20,296 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-const employeeStats = [
-    {
-        title: 'Total Users',
-        value: '1,384',
-        change: '+47',
-        icon: Users,
-        positive: true,
-    },
-    {
-        title: 'Active Bank Accounts',
-        value: '839',
-        change: '+72',
-        icon: Users,
-        positive: true,
-    },
-    {
-        title: 'Inactive employee',
-        value: '531',
-        change: '-49',
-        icon: Users,
-        positive: false,
-    },
-];
+interface BankAccount {
+    user_id: string;
+    bank_name: string;
+    account_name: string;
+    account_number: string;
+    currency: string;
+    swift_code: string;
+    iban: string;
+    home_address: string;
+    country: string;
+    bank_address: string;
+    status: string;
+    is_primary: boolean;
+    // ... any other bank account fields
+}
 
-const employees = [
-    {
-        id: 'A01DSGN193',
-        name: 'Chase Bank',
-        email: 'randyrhiel@email.com',
-        avatar: '/avatars/randy.jpg',
-        jobTitle: 'UI Designer',
-        department: 'Design Team',
-        joinDate: '11 August 2022',
-        status: 'Active',
-    },
-    {
-        id: 'A02DSGN196',
-        name: 'Maria Rosser',
-        email: 'rossermar@email.com',
-        avatar: '/avatars/maria.jpg',
-        jobTitle: 'UX Researcher',
-        department: 'Design Team',
-        joinDate: '25 June 2021',
-        status: 'Inactive',
-    },
-];
+interface User {
+    id: string; // Assuming ID can be string or number based on your DB
+    name: string;
+    email: string;
+    created_at: string; // Assuming created_at is a string date from backend
+    status?: string; // User's overall status (e.g., Active, Inactive)
+    bank_accounts?: BankAccount[]; // Array of bank accounts
+    home_address?: string | null; // Home address for the user
+    country?: string | null;     // Country for the user
+    user_type?: string; // Add this new field for the select dropdown
+    // Add other user properties like avatar, jobTitle, department if needed
+}
 
-const users = [
-    { id: 'user1', name: 'John Doe' },
-    { id: 'user2', name: 'Jane Smith' },
-    { id: 'user3', name: 'Alice Johnson' },
-];
+interface PaginationLink {
+    url: string | null;
+    label: string;
+    active: boolean;
+}
 
-export default function AdminDashboard() {
-    const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
-    const [viewedEmployee, setViewedEmployee] = useState<any>(null);
+interface PaginationMeta {
+    current_page: number;
+    from: number;
+    last_page: number;
+    links: PaginationLink[];
+    path: string;
+    per_page: number;
+    to: number;
+    total: number;
+}
+
+interface PaginatedUsers {
+    data: User[];
+    links: {
+        first: string | null;
+        last: string | null;
+        prev: string | null;
+        next: string | null;
+    };
+    meta: PaginationMeta;
+}
+
+interface AdminAccountsProps {
+    users: PaginatedUsers;
+    totalUsersCount: number;
+    totalBankAccountsCount: number;
+    pendingRequestsCount: number;
+    totalPortfoliosCount?: number;
+    inactiveAccountsCount?: number;
+}
+
+// Define interface for the new bank account form data
+interface NewBankAccountFormData {
+    user_id: string;
+    bank_name: string;
+    account_name: string;
+    account_number: string;
+    currency: string;
+    swift_code: string;
+    iban: string;
+    country: string;
+    home_address: string;
+    bank_address: string;
+    is_primary: boolean;
+}
+
+export default function AdminAccounts({
+    users,
+    totalUsersCount = 0,
+    totalBankAccountsCount = 0,
+    pendingRequestsCount = 0,
+    totalPortfoliosCount,
+    inactiveAccountsCount = 0
+}: AdminAccountsProps) {
+
+    const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
+    const [viewedUser, setViewedUser] = useState<User | null>(null);
     const [isEditing, setIsEditing] = useState(false);
-    const [editedEmployee, setEditedEmployee] = useState<any>(null);
     const [openAddAccount, setOpenAddAccount] = useState(false);
 
-    const [newUserId, setNewUserId] = useState('');
-    const [newBankName, setNewBankName] = useState('');
-    const [newAccountName, setNewAccountName] = useState('');
-    const [newAccountNumber, setNewAccountNumber] = useState('');
-    const [newCurrency, setNewCurrency] = useState('');
-    const [newSwiftCode, setNewSwiftCode] = useState('');
-    const [newIban, setNewIban] = useState('');
-    const [newBankAddress, setNewBankAddress] = useState('');
-    const [newHomeAddress, setNewHomeAddress] = useState('');
-    const [newCountry, setNewCountry] = useState('');
-    const [newIsPrimary, setNewIsPrimary] = useState(false);
+    // Inertia.js useForm for editing user details
+    const { data: editedUser, setData: setEditedUser, patch, processing: isEditingUser, errors: editErrors } = useForm<Partial<User>>({
+        id: '',
+        name: '',
+        email: '',
+        home_address: '',
+        country: '',
+        user_type: '', // Add this new field
+    });
 
-    const toggleEmployee = (id: string) => {
-        if (selectedEmployees.includes(id)) {
-            setSelectedEmployees(selectedEmployees.filter((empId) => empId !== id));
+    // Inertia.js useForm for adding a new bank account
+    const { data: newAccountData, setData: setNewAccountData, post, processing: isAddingAccount, errors: addAccountErrors, reset: resetNewAccountForm } = useForm<NewBankAccountFormData>({
+        user_id: '',
+        bank_name: '',
+        account_name: '',
+        account_number: '',
+        currency: '',
+        swift_code: '',
+        iban: '',
+        country: '',
+        home_address: '',
+        bank_address: '',
+        is_primary: false,
+    });
+
+    const dashboardStats = [
+        {
+            title: 'Total Users',
+            value: totalUsersCount.toLocaleString(),
+            change: '+47',
+            icon: UsersIcon,
+            positive: true,
+        },
+        {
+            title: 'Active Bank Accounts',
+            value: totalBankAccountsCount.toLocaleString(),
+            change: '+72',
+            icon: CreditCard,
+            positive: true,
+        },
+        {
+            title: 'Pending Requests',
+            value: pendingRequestsCount.toLocaleString(),
+            change: '-49',
+            icon: AlertCircle,
+            positive: false,
+        },
+        ...(totalPortfoliosCount !== undefined ? [{
+            title: 'Total Portfolios',
+            value: totalPortfoliosCount.toLocaleString(),
+            change: '+15',
+            icon: Building,
+            positive: true,
+        }] : []),
+    ];
+
+    const toggleUser = (id: string) => {
+        if (selectedUsers.includes(id)) {
+            setSelectedUsers(selectedUsers.filter((userId) => userId !== id));
         } else {
-            setSelectedEmployees([...selectedEmployees, id]);
+            setSelectedUsers([...selectedUsers, id]);
         }
     };
 
-    const handleView = (employee: any) => {
-        setViewedEmployee(employee);
+    const handleView = (user: User) => {
+        setViewedUser(user);
+        // Initialize the editedUser form with the current viewed user's data
+        setEditedUser({
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            home_address: user.home_address,
+            country: user.country,
+            user_type: user.user_type, // Add this line
+        });
     };
 
     const handleEdit = () => {
-        setEditedEmployee({ ...viewedEmployee });
         setIsEditing(true);
     };
 
-    const handleEditChange = (event: React.ChangeEvent<HTMLInputElement>, field: string) => {
-        setEditedEmployee({ ...editedEmployee, [field]: event.target.value });
+    // This handler will now directly update the `editedUser` data from useForm
+    const handleEditChange = (event: React.ChangeEvent<HTMLInputElement>, field: keyof User) => {
+        setEditedUser(field, event.target.value);
     };
 
-    const handleSubmit = () => {
-        console.log('Submitted:', editedEmployee);
-        setViewedEmployee(editedEmployee);
-        setIsEditing(false);
+    // Add this helper function to handle select changes
+    const handleSelectChange = (field: keyof User, value: string) => {
+        setEditedUser(field, value);
     };
 
-    const handleAddAccount = () => {
-        const newAccount = {
-            id: String(Date.now()),
-            user_id: newUserId,
-            bank_name: newBankName,
-            account_name: newAccountName,
-            account_number: newAccountNumber,
-            currency: newCurrency,
-            swift_code: newSwiftCode,
-            iban: newIban,
-            bank_address: newBankAddress,
-            home_address: newHomeAddress,
-            country: newCountry,
-            is_primary: newIsPrimary,
-        };
-        console.log('New Account:', newAccount);
-        setOpenAddAccount(false);
-        setNewUserId('');
-        setNewBankName('');
-        setNewAccountName('');
-        setNewAccountNumber('');
-        setNewCurrency('');
-        setNewSwiftCode('');
-        setNewIban('');
-        setNewBankAddress('');
-        setNewHomeAddress('');
-        setNewCountry('');
-        setNewIsPrimary(false);
+    const handleUserSubmit = (e: React.FormEvent) => {
+        e.preventDefault(); // Prevent default form submission
+
+        if (editedUser && editedUser.id) {
+            // Use Inertia's patch method for updating an existing resource
+            patch(route('users.update', editedUser.id), {
+                onSuccess: () => {
+                    alert('User updated successfully!');
+                    setIsEditing(false); // Close edit mode on success
+                    // Update the viewed user with the edited data
+                    if (viewedUser) {
+                        setViewedUser({
+                            ...viewedUser,
+                            ...editedUser
+                        });
+                    }
+                },
+                onError: (errors) => {
+                    console.error('Error updating user:', errors);
+                    alert('Failed to update user. Check console for details.');
+                }
+            });
+        }
+    };
+
+    const handleAddAccountSubmit = (e: React.FormEvent) => {
+        e.preventDefault(); // Prevent default form submission
+
+        // Use Inertia's post method for creating a new resource
+        post(route('bank-accounts.store'), {
+            onSuccess: () => {
+                alert('Bank account added successfully!');
+                setOpenAddAccount(false); // Close dialog on success
+                resetNewAccountForm(); // Clear the form
+                // Optionally refresh the user list or specific user's bank accounts
+            },
+            onError: (errors) => {
+                console.error('Error adding bank account:', errors);
+                alert('Failed to add bank account. Check console for details.');
+            }
+        });
     };
 
     const tableHeaders = [
-        <div className="w-10">#</div>,
-        <div className="flex items-center space-x-1">
+        <div key="col-id" className="w-10">#</div>,
+        <div key="col-user-info" className="flex items-center space-x-1">
+            <span>User Info</span>
+            <Button variant="ghost" size="sm" className="h-5 w-5 p-0">
+                <ChevronUp className="h-3 w-3" />
+            </Button>
+        </div>,
+        <div key="col-bank-name" className="flex items-center space-x-1">
             <span>Bank Name</span>
             <Button variant="ghost" size="sm" className="h-5 w-5 p-0">
                 <ChevronUp className="h-3 w-3" />
             </Button>
         </div>,
-        <div className="flex items-center space-x-1">
-            <span>Bank Account Number</span>
+        <div key="col-account-number" className="flex items-center space-x-1">
+            <span>Account Number</span>
             <Button variant="ghost" size="sm" className="h-5 w-5 p-0">
                 <ChevronUp className="h-3 w-3" />
             </Button>
         </div>,
-        <div className="flex hidden items-center space-x-1 sm:table-cell">
-            <span>Users</span>
+        <div key="col-bank-address" className="flex items-center space-x-1">
+            <span>Bank Address</span>
             <Button variant="ghost" size="sm" className="h-5 w-5 p-0">
                 <ChevronUp className="h-3 w-3" />
             </Button>
         </div>,
-        <div className="flex hidden items-center space-x-1 md:table-cell">
-            <span>Status</span>
+        <div key="col-home-address" className="flex items-center space-x-1">
+            <span>Home Address</span>
             <Button variant="ghost" size="sm" className="h-5 w-5 p-0">
                 <ChevronUp className="h-3 w-3" />
             </Button>
         </div>,
+        <div key="col-country" className="flex items-center space-x-1">
+            <span>Country</span>
+            <Button variant="ghost" size="sm" className="h-5 w-5 p-0">
+                <ChevronUp className="h-3 w-3" />
+            </Button>
+        </div>,
+        <div key="col-actions">Actions</div>,
     ];
+
+    const tableData = users.data?.map(user => {
+        const primaryBankAccount = user.bank_accounts?.find(account => account.is_primary);
+        return {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            bankAccount: primaryBankAccount ? `${primaryBankAccount.bank_name} (${primaryBankAccount.account_number})` : 'N/A',
+            status: user.status || 'N/A',
+            originalItem: user, // Pass the full user object for view/edit
+        };
+    }) || [];
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Employee Management" />
+            <Head title="User Account Management" />
             <div className="flex h-full flex-col gap-6 p-4 md:p-6">
-                {/* Employee Statistics Cards */}
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    {employeeStats.map((stat, index) => (
-                        <Card key={index} className="bg-white shadow-sm dark:bg-zinc-800">
-                            <CardContent className="p-4 md:p-6">
-                                <div className="flex items-start justify-between">
-                                    <div className="space-y-1 md:space-y-2">
-                                        <div className="flex items-baseline">
-                                            <span className="text-xl font-bold text-gray-900 md:text-2xl dark:text-gray-100">{stat.value}</span>
-                                        </div>
-                                        <p className="text-xs text-gray-500 md:text-sm dark:text-gray-400">{stat.title}</p>
-                                    </div>
-                                    <div className="rounded-lg bg-gray-100 p-2 dark:bg-gray-700">
-                                        <stat.icon className="h-4 w-4 text-gray-500 md:h-5 md:w-5 dark:text-gray-400" />
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    ))}
-                </div>
+                <DashboardStats stats={dashboardStats} />
 
                 <AnimatePresence mode="wait">
-                    {viewedEmployee ? (
+                    {viewedUser ? (
                         <motion.div
                             key={isEditing ? 'editPage' : 'viewPage'}
                             initial={{ opacity: 0 }}
@@ -210,7 +317,105 @@ export default function AdminDashboard() {
                             exit={{ opacity: 0 }}
                             transition={{ duration: 0.2, ease: 'easeInOut' }}
                         >
-                            {/* ... (Edit and View Modal logic remains the same) ... */}
+                            <Card className="bg-white shadow-sm dark:bg-zinc-800 p-4">
+                                <div className="p-2 flex justify-between items-center">
+                                    <h1>{isEditing ? "Edit User Details" : "User Details"}</h1>
+                                    <Button onClick={() => {
+                                        setIsEditing(false);
+                                        setViewedUser(null);
+                                    }}>
+                                        {isEditing ? "Cancel" : "Close"}
+                                    </Button>
+                                </div>
+                                <div className="p-4 space-y-4">
+                                    {isEditing && editedUser ? (
+                                        // Wrap your edit form in a <form> tag
+                                        <form onSubmit={handleUserSubmit}>
+                                            <div className="grid grid-cols-4 items-center gap-4">
+                                                <label htmlFor="name" className="text-right text-sm leading-none font-medium text-gray-700 dark:text-gray-300">Name</label>
+                                                <Input id="name" value={editedUser.name || ''} onChange={(e) => handleEditChange(e, 'name')} className="col-span-3" />
+                                                {editErrors.name && <div className="col-span-4 text-red-500 text-sm">{editErrors.name}</div>}
+                                            </div>
+                                            
+                                            <div className="grid grid-cols-4 items-center gap-4 mt-4">
+                                                <label htmlFor="email" className="text-right text-sm leading-none font-medium text-gray-700 dark:text-gray-300">Email</label>
+                                                <Input id="email" value={editedUser.email || ''} onChange={(e) => handleEditChange(e, 'email')} className="col-span-3" />
+                                                {editErrors.email && <div className="col-span-4 text-red-500 text-sm">{editErrors.email}</div>}
+                                            </div>
+                                            
+                                            <div className="grid grid-cols-4 items-center gap-4 mt-4">
+                                                <label htmlFor="home_address" className="text-right text-sm leading-none font-medium text-gray-700 dark:text-gray-300">Home Address</label>
+                                                <Input id="home_address" value={editedUser.home_address || ''} onChange={(e) => handleEditChange(e, 'home_address')} className="col-span-3" />
+                                                {editErrors.home_address && <div className="col-span-4 text-red-500 text-sm">{editErrors.home_address}</div>}
+                                            </div>
+                                            
+                                            <div className="grid grid-cols-4 items-center gap-4 mt-4">
+                                                <label htmlFor="country" className="text-right text-sm leading-none font-medium text-gray-700 dark:text-gray-300">Country</label>
+                                                <Input id="country" value={editedUser.country || ''} onChange={(e) => handleEditChange(e, 'country')} className="col-span-3" />
+                                                {editErrors.country && <div className="col-span-4 text-red-500 text-sm">{editErrors.country}</div>}
+                                            </div>
+                                            
+                                            {/* Add the new select field */}
+                                            <div className="grid grid-cols-4 items-center gap-4 mt-4">
+                                                <label htmlFor="user_type" className="text-right text-sm leading-none font-medium text-gray-700 dark:text-gray-300">User Type</label>
+                                                <Select value={editedUser.user_type || ''} onValueChange={(value) => handleSelectChange('user_type', value)}>
+                                                    <SelectTrigger className="col-span-3">
+                                                        <SelectValue placeholder="Select User Type" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="admin">Admin</SelectItem>
+                                                        <SelectItem value="user">Regular User</SelectItem>
+                                                        <SelectItem value="premium">Premium User</SelectItem>
+                                                        <SelectItem value="vip">VIP User</SelectItem>
+                                                        <SelectItem value="suspended">Suspended</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                                {editErrors.user_type && <div className="col-span-4 text-red-500 text-sm">{editErrors.user_type}</div>}
+                                            </div>
+                                            
+                                            <div className="flex justify-end mt-4">
+                                                <Button type="submit" disabled={isEditingUser}>
+                                                    {isEditingUser ? 'Saving...' : 'Save Changes'}
+                                                </Button>
+                                            </div>
+                                        </form>
+                                    ) : (
+                                        viewedUser && (
+                                            <div className="space-y-2">
+                                                <p><strong>ID:</strong> {viewedUser.id}</p>
+                                                <p><strong>Name:</strong> {viewedUser.name}</p>
+                                                <p><strong>Email:</strong> {viewedUser.email}</p>
+                                                <p><strong>Status:</strong> {viewedUser.status || 'N/A'}</p>
+                                                <p><strong>User Type:</strong> {viewedUser.user_type || 'N/A'}</p>
+                                                <p><strong>Joined:</strong> {new Date(viewedUser.created_at).toLocaleDateString()}</p>
+                                                {viewedUser.bank_accounts && viewedUser.bank_accounts.length > 0 && (
+                                                    <div className="mt-4">
+                                                        <h3 className="font-semibold">Bank Accounts:</h3>
+                                                        {viewedUser.bank_accounts.map((account, index) => (
+                                                            <div key={index} className="ml-4 border-l pl-2 mt-2">
+                                                                <p><strong>Bank Name:</strong> {account.bank_name}</p>
+                                                                <p><strong>Account Name:</strong> {account.account_name}</p>
+                                                                <p><strong>Account Number:</strong> {account.account_number}</p>
+                                                                <p><strong>Currency:</strong> {account.currency}</p>
+                                                                <p><strong>SWIFT Code:</strong> {account.swift_code}</p>
+                                                                <p><strong>IBAN:</strong> {account.iban || 'N/A'}</p>
+                                                                {/* <p><strong>Home Address:</strong> {account.home_address || 'N/A'}</p> */}
+                                                                <p><strong>Bank Address:</strong> {account.bank_address || 'N/A'}</p>
+                                                                <p><strong>Primary:</strong> {account.is_primary ? 'Yes' : 'No'}</p>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                                <p><strong>Home Address:</strong> {viewedUser.home_address || 'N/A'}</p>
+                                                <p><strong>Country:</strong> {viewedUser.country || 'N/A'}</p>
+                                                <div className="flex justify-end pt-4">
+                                                    <Button onClick={handleEdit}>Edit</Button>
+                                                </div>
+                                            </div>
+                                        )
+                                    )}
+                                </div>
+                            </Card>
                         </motion.div>
                     ) : (
                         <motion.div
@@ -221,12 +426,13 @@ export default function AdminDashboard() {
                             transition={{ duration: 0.2, ease: 'easeInOut' }}
                         >
                             <CustomTable
-                                data={employees}
-                                selectedItems={selectedEmployees}
-                                setSelectedItems={setSelectedEmployees}
-                                toggleItem={toggleEmployee}
-                                title={'BANK ACCOUNTS'}
-                                caption={'A list of your recent accounts.'}
+                                data={tableData}
+                                selectedItems={selectedUsers}
+                                setSelectedItems={setSelectedUsers}
+                                toggleItem={toggleUser}
+                                pageType="accounts"
+                                title={'USER ACCOUNTS'}
+                                caption={'A list of your registered users.'}
                                 headers={tableHeaders}
                                 additionalButton={
                                     <Dialog open={openAddAccount} onOpenChange={setOpenAddAccount}>
@@ -237,14 +443,12 @@ export default function AdminDashboard() {
                                             </Button>
                                         </DialogTrigger>
                                         <DialogContent className="mx-auto p-6 max-h-[85vh] overflow-y-auto">
-                                            {' '}
-                                            {/* Updated class */}
                                             <DialogHeader>
                                                 <DialogTitle>Add New Account</DialogTitle>
                                                 <DialogDescription>Fill in the details for the new account.</DialogDescription>
                                             </DialogHeader>
-                                            {/* Rest of the form grid */}
-                                            <div className="grid gap-4 py-4">
+                                            {/* Wrap your add account form in a <form> tag */}
+                                            <form onSubmit={handleAddAccountSubmit} className="grid gap-4 py-4">
                                                 {/* User Select */}
                                                 <div className="grid grid-cols-4 items-center gap-4">
                                                     <label
@@ -252,24 +456,24 @@ export default function AdminDashboard() {
                                                         className="text-right text-sm leading-none font-medium text-gray-700 dark:text-gray-300"
                                                     >
                                                         User
-                                                    </label>{' '}
-                                                    {/* Adjusted text color */}
-                                                    <Select value={newUserId} onValueChange={setNewUserId}>
-                                                        {' '}
-                                                        {/* Removed className="col-span-3" */}
+                                                    </label>
+                                                    <Select value={newAccountData.user_id} onValueChange={(value) => setNewAccountData('user_id', value)}>
                                                         <SelectTrigger className="col-span-3">
-                                                            {' '}
-                                                            {/* Added col-span-3 here */}
                                                             <SelectValue placeholder="Select User" />
                                                         </SelectTrigger>
                                                         <SelectContent>
-                                                            {users.map((user) => (
-                                                                <SelectItem key={user.id} value={user.id}>
+                                                            {users.data?.map((user) => (
+                                                                <SelectItem 
+                                                                    key={String(user.id)}
+                                                                    value={String(user.id)}
+                                                                >
                                                                     {user.name}
                                                                 </SelectItem>
-                                                            ))}
+                                                            )) || []}
                                                         </SelectContent>
+                                                        
                                                     </Select>
+                                                    {addAccountErrors.user_id && <div className="col-span-4 text-red-500 text-sm">{addAccountErrors.user_id}</div>}
                                                 </div>
 
                                                 {/* Bank Name */}
@@ -279,14 +483,14 @@ export default function AdminDashboard() {
                                                         className="text-right text-sm leading-none font-medium text-gray-700 dark:text-gray-300"
                                                     >
                                                         Bank Name
-                                                    </label>{' '}
-                                                    {/* Adjusted text color */}
+                                                    </label>
                                                     <Input
                                                         id="bank_name"
-                                                        value={newBankName}
-                                                        onChange={(e) => setNewBankName(e.target.value)}
+                                                        value={newAccountData.bank_name}
+                                                        onChange={(e) => setNewAccountData('bank_name', e.target.value)}
                                                         className="col-span-3"
                                                     />
+                                                    {addAccountErrors.bank_name && <div className="col-span-4 text-red-500 text-sm">{addAccountErrors.bank_name}</div>}
                                                 </div>
 
                                                 {/* Account Name */}
@@ -296,14 +500,14 @@ export default function AdminDashboard() {
                                                         className="text-right text-sm leading-none font-medium text-gray-700 dark:text-gray-300"
                                                     >
                                                         Account Name
-                                                    </label>{' '}
-                                                    {/* Adjusted text color */}
+                                                    </label>
                                                     <Input
                                                         id="account_name"
-                                                        value={newAccountName}
-                                                        onChange={(e) => setNewAccountName(e.target.value)}
+                                                        value={newAccountData.account_name}
+                                                        onChange={(e) => setNewAccountData('account_name', e.target.value)}
                                                         className="col-span-3"
                                                     />
+                                                    {addAccountErrors.account_name && <div className="col-span-4 text-red-500 text-sm">{addAccountErrors.account_name}</div>}
                                                 </div>
 
                                                 {/* Account Number */}
@@ -313,14 +517,14 @@ export default function AdminDashboard() {
                                                         className="text-right text-sm leading-none font-medium text-gray-700 dark:text-gray-300"
                                                     >
                                                         Account Number
-                                                    </label>{' '}
-                                                    {/* Adjusted text color */}
+                                                    </label>
                                                     <Input
                                                         id="account_number"
-                                                        value={newAccountNumber}
-                                                        onChange={(e) => setNewAccountNumber(e.target.value)}
+                                                        value={newAccountData.account_number}
+                                                        onChange={(e) => setNewAccountData('account_number', e.target.value)}
                                                         className="col-span-3"
                                                     />
+                                                    {addAccountErrors.account_number && <div className="col-span-4 text-red-500 text-sm">{addAccountErrors.account_number}</div>}
                                                 </div>
 
                                                 {/* Currency */}
@@ -330,14 +534,14 @@ export default function AdminDashboard() {
                                                         className="text-right text-sm leading-none font-medium text-gray-700 dark:text-gray-300"
                                                     >
                                                         Currency
-                                                    </label>{' '}
-                                                    {/* Adjusted text color */}
+                                                    </label>
                                                     <Input
                                                         id="currency"
-                                                        value={newCurrency}
-                                                        onChange={(e) => setNewCurrency(e.target.value)}
+                                                        value={newAccountData.currency}
+                                                        onChange={(e) => setNewAccountData('currency', e.target.value)}
                                                         className="col-span-3"
                                                     />
+                                                    {addAccountErrors.currency && <div className="col-span-4 text-red-500 text-sm">{addAccountErrors.currency}</div>}
                                                 </div>
 
                                                 {/* SWIFT Code */}
@@ -347,14 +551,14 @@ export default function AdminDashboard() {
                                                         className="text-right text-sm leading-none font-medium text-gray-700 dark:text-gray-300"
                                                     >
                                                         SWIFT Code
-                                                    </label>{' '}
-                                                    {/* Adjusted text color */}
+                                                    </label>
                                                     <Input
                                                         id="swift_code"
-                                                        value={newSwiftCode}
-                                                        onChange={(e) => setNewSwiftCode(e.target.value)}
+                                                        value={newAccountData.swift_code}
+                                                        onChange={(e) => setNewAccountData('swift_code', e.target.value)}
                                                         className="col-span-3"
                                                     />
+                                                    {addAccountErrors.swift_code && <div className="col-span-4 text-red-500 text-sm">{addAccountErrors.swift_code}</div>}
                                                 </div>
 
                                                 {/* IBAN */}
@@ -364,14 +568,14 @@ export default function AdminDashboard() {
                                                         className="text-right text-sm leading-none font-medium text-gray-700 dark:text-gray-300"
                                                     >
                                                         IBAN <span className="text-gray-500">(Optional)</span>
-                                                    </label>{' '}
-                                                    {/* Adjusted text color & optional text */}
+                                                    </label>
                                                     <Input
                                                         id="iban"
-                                                        value={newIban}
-                                                        onChange={(e) => setNewIban(e.target.value)}
+                                                        value={newAccountData.iban}
+                                                        onChange={(e) => setNewAccountData('iban', e.target.value)}
                                                         className="col-span-3"
                                                     />
+                                                    {addAccountErrors.iban && <div className="col-span-4 text-red-500 text-sm">{addAccountErrors.iban}</div>}
                                                 </div>
 
                                                 {/* Bank Address */}
@@ -381,14 +585,14 @@ export default function AdminDashboard() {
                                                         className="text-right text-sm leading-none font-medium text-gray-700 dark:text-gray-300"
                                                     >
                                                         Bank Address
-                                                    </label>{' '}
-                                                    {/* Adjusted text color */}
+                                                    </label>
                                                     <Input
                                                         id="bank_address"
-                                                        value={newBankAddress}
-                                                        onChange={(e) => setNewBankAddress(e.target.value)}
+                                                        value={newAccountData.bank_address}
+                                                        onChange={(e) => setNewAccountData('bank_address', e.target.value)}
                                                         className="col-span-3"
                                                     />
+                                                    {addAccountErrors.bank_address && <div className="col-span-4 text-red-500 text-sm">{addAccountErrors.bank_address}</div>}
                                                 </div>
 
                                                 {/* Home Address */}
@@ -398,66 +602,64 @@ export default function AdminDashboard() {
                                                         className="text-right text-sm leading-none font-medium text-gray-700 dark:text-gray-300"
                                                     >
                                                         Home Address
-                                                    </label>{' '}
-                                                    {/* Adjusted text color */}
+                                                    </label>
                                                     <Input
                                                         id="home_address"
-                                                        value={newHomeAddress}
-                                                        onChange={(e) => setNewHomeAddress(e.target.value)}
+                                                        value={newAccountData.home_address}
+                                                        onChange={(e) => setNewAccountData('home_address', e.target.value)}
                                                         className="col-span-3"
                                                     />
+                                                    {addAccountErrors.home_address && <div className="col-span-4 text-red-500 text-sm">{addAccountErrors.home_address}</div>}
                                                 </div>
 
-                                                {/* Country */}
+                                                 {/* Country */}
                                                 <div className="grid grid-cols-4 items-center gap-4">
                                                     <label
                                                         htmlFor="country"
                                                         className="text-right text-sm leading-none font-medium text-gray-700 dark:text-gray-300"
                                                     >
                                                         Country
-                                                    </label>{' '}
-                                                    {/* Adjusted text color */}
+                                                    </label>
                                                     <Input
                                                         id="country"
-                                                        value={newCountry}
-                                                        onChange={(e) => setNewCountry(e.target.value)}
+                                                        value={newAccountData.country}
+                                                        onChange={(e) => setNewAccountData('country', e.target.value)}
                                                         className="col-span-3"
                                                     />
+                                                    {addAccountErrors.country && <div className="col-span-4 text-red-500 text-sm">{addAccountErrors.country}</div>}
                                                 </div>
 
-                                                {/* Is Primary Checkbox - Improved Layout */}
+                                                {/* Is Primary Checkbox */}
                                                 <div className="grid grid-cols-4 items-center gap-4">
-                                                    <div /> {/* Empty cell for alignment */}
+                                                    <div />
                                                     <div className="col-span-3 flex items-center space-x-2">
                                                         <Checkbox
                                                             id="is_primary"
-                                                            checked={newIsPrimary}
-                                                            // Use boolean for onCheckedChange if using shadcn/ui >= some version
-                                                            // Check your Checkbox component's documentation
-                                                            onCheckedChange={(checked) => setNewIsPrimary(Boolean(checked))}
-                                                            // For older versions or if it expects a boolean:
-                                                            // onCheckedChange={setNewIsPrimary}
+                                                            checked={newAccountData.is_primary}
+                                                            onCheckedChange={(checked) => setNewAccountData('is_primary', Boolean(checked))}
                                                         />
                                                         <label
                                                             htmlFor="is_primary"
-                                                            className="text-sm leading-none font-medium text-gray-700 peer-disabled:cursor-not-allowed peer-disabled:opacity-70 dark:text-gray-300" // Adjusted text color
+                                                            className="text-sm leading-none font-medium text-gray-700 peer-disabled:cursor-not-allowed peer-disabled:opacity-70 dark:text-gray-300"
                                                         >
                                                             Set as Primary Account
                                                         </label>
                                                     </div>
+                                                    {addAccountErrors.is_primary && <div className="col-span-4 text-red-500 text-sm">{addAccountErrors.is_primary}</div>}
                                                 </div>
-                                            </div>
-                                            <div className="flex justify-end pt-4">
-                                                {' '}
-                                                {/* Added padding-top */}
-                                                <Button type="button" onClick={handleAddAccount}>
-                                                    Add Account
-                                                </Button>
-                                            </div>
+                                                <div className="flex justify-end pt-4">
+                                                    <Button type="submit" disabled={isAddingAccount}>
+                                                        {isAddingAccount ? 'Adding...' : 'Add Account'}
+                                                    </Button>
+                                                </div>
+                                            </form>
                                         </DialogContent>
                                     </Dialog>
                                 }
                                 onView={handleView}
+                                showViewButton={true}
+                                showPagination={true}
+                                pagination={users.meta}
                             />
                         </motion.div>
                     )}

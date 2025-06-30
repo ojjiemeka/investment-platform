@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\AdminPagesController;
 use App\Http\Controllers\AuthPagesController;
+use App\Http\Controllers\BankAccountsController;
+use App\Http\Controllers\UserController;
 use App\Http\Controllers\WalletController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -25,10 +27,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware(['can:admin'])->prefix('/wallet/admin')->group(function () {
         Route::get('/dashboard', [AdminPagesController::class, 'dashboard'])->name('adminDashboard');
         Route::get('/requests', [AdminPagesController::class, 'requests'])->name('requests');
+        Route::get('/portfolios', [AdminPagesController::class, 'portfolios'])->name('portfolios');
         Route::get('/mail', [AdminPagesController::class, 'mail'])->name('mail');
         Route::get('/accounts', [AdminPagesController::class, 'accounts'])->name('accounts');
         Route::get('/notifications', [AdminPagesController::class, 'notifications'])->name('notifications');
+        Route::resource('users', UserController::class);
+        Route::resource('bank-accounts', BankAccountsController::class);
     });
+
+
 });
 
 require __DIR__.'/settings.php';
