@@ -4,13 +4,12 @@ import { ChartConfig, ChartContainer, ChartLegend, ChartLegendContent, ChartTool
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
-import { Head } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import React from 'react';
 import { Area, AreaChart, CartesianGrid, XAxis } from 'recharts';
 
 // Define TypeScript interfaces for type safety
 // Use the CryptoItem[] type for cryptoData
-
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -18,6 +17,37 @@ const breadcrumbs: BreadcrumbItem[] = [
         href: '/dashboard',
     },
 ];
+
+interface UserData {
+    id: string | number;
+    name: string;
+    email: string;
+    is_active: boolean | number;
+    created_at: string;
+}
+
+interface UsersProp {
+    name: ReactNode;
+    email: ReactNode;
+    created_at: string | number | Date;
+    is_active: any;
+    data: UserData[];
+    links: {
+        url: string | null;
+        label: string;
+        active: boolean;
+    }[];
+    current_page: number;
+    last_page: number;
+    total: number;
+}
+
+interface DashboardProps {
+    user: UserData;              // ✅ add user
+    users: UsersProp;
+    portfolioBalance: number;
+}
+
 
 const chartData = [
     { date: '2024-04-01', desktop: 222, mobile: 150 },
@@ -128,6 +158,7 @@ const chartConfig = {
 } satisfies ChartConfig;
 
 export default function Dashboard({
+    users,
     cryptoData = {
         btc: {
             name: 'Bitcoin',
@@ -138,8 +169,10 @@ export default function Dashboard({
             volume24h: 0,
         },
     },
+    portfolioBalance,
 }: DashboardProps) {
     // Format currency
+    // console.log('Logged in User:', users);
 
     const [timeRange, setTimeRange] = React.useState('90d');
     const filteredData = chartData.filter((item) => {
@@ -158,15 +191,35 @@ export default function Dashboard({
 
     const WalletBalance = ({ balance, currency, subtitle }: { balance: number; currency: string; subtitle: string }) => {
         return (
-            <div className="rounded-xl p-4">
-                <div className="items-center justify-between">
-                    <div className="mb-2 flex items-center gap-2">
-                        <span className="text-3xl text-gray-400">{currency}</span>
-                        <div className="text-5xl font-bold text-black dark:text-white">{balance.toLocaleString()}</div>
-                    </div>
-                    <div className="text-sm text-gray-500">{subtitle}</div>
-                </div>
+           
+<div className="rounded-xl p-4 space-y-3">
+    <div className="items-center justify-between">
+        <div className="mb-2 flex items-center gap-2">
+            <span className="text-3xl text-gray-400">{currency}</span>
+            <div className="text-5xl font-bold text-black dark:text-white">
+                {balance.toLocaleString()}
             </div>
+        </div>
+        <div className="text-sm text-gray-500">{subtitle}</div>
+    </div>
+
+    {/* Action Buttons */}
+    {/* <div className="flex gap-2 pt-2">
+        <button
+            onClick={() => router.visit('/wallet/transactions')}
+            className="flex-1 rounded-lg bg-red-500 px-4 py-2 text-white hover:bg-red-600 transition-colors"
+        >
+            Withdraw
+        </button>
+        <button
+            onClick={() => router.visit('/wallet/transactions')}
+            className="flex-1 rounded-lg bg-green-500 px-4 py-2 text-white hover:bg-green-600 transition-colors"
+        >
+            Deposit
+        </button>
+    </div> */}
+</div>
+
         );
     };
 
@@ -174,11 +227,24 @@ export default function Dashboard({
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Dashboard" />
             <div className="flex h-full flex-col gap-4 rounded-xl p-4">
+
                 {/* First row of cards */}
                 <div className="grid auto-rows-min gap-4 md:grid-cols-2">
                     <Card className="w-full">
-                        <WalletBalance balance={47534590} currency="$" subtitle="Your Take 7.4% Less Than Past 2 Months" />
-                    </Card>
+                    <CardHeader>
+                        <CardTitle>Welcome, {users.name}!</CardTitle>
+                        <CardDescription>{users.email}</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-sm text-gray-500">Member since: {new Date(users.created_at).toLocaleDateString()}</p>
+                        <p className={`mt-1 text-sm font-medium ${users.is_active ? 'text-green-600' : 'text-red-600'}`}>
+                            {users.is_active ? 'Active Account' : 'Inactive Account'}
+                        </p>
+
+
+                    </CardContent>
+                        <WalletBalance balance={portfolioBalance} currency="$" subtitle="Total Portfolio Balance" />
+                </Card>
                     <CryptoBalance cryptoData={cryptoData} />
                 </div>
 

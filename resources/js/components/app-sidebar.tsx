@@ -61,7 +61,7 @@ const userNavItems: NavItem[] = [
     icon: LayoutGrid,
   },
   {
-    title: 'Wallet',
+    title: 'Accounts',
     href: '/wallet',
     icon: Wallet,
   },

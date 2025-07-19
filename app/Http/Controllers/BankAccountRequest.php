@@ -3,12 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
-use App\Models\BankAccount;
+use App\Models\BankAccountRequest as ModelsBankAccountRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
+use Inertia\Inertia;
 
-class BankAccountsController extends Controller
+class BankAccountRequest extends Controller
 {
     /**
      * Display a listing of the resource.
@@ -29,12 +30,13 @@ class BankAccountsController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-     public function store(Request $request)
+    public function store(Request $request)
     {
-        // dd($request->all()); // Debugging line to check the incoming request data
+        $user= Auth::user();
+
         // Validate the incoming request data
         $validatedData = $request->validate([
-            'user_id' => ['required', 'string', 'exists:users,id'], // Ensure user_id exists in the users table
+            // 'user_id' => ['required', 'string', 'exists:users,id'], // Ensure user_id exists in the users table
             'bank_name' => ['required', 'string', 'max:255'],
             'account_name' => ['required', 'string', 'max:255'],
             'account_number' => [
@@ -52,25 +54,21 @@ class BankAccountsController extends Controller
             'country' => ['nullable', 'string', 'max:255'], // Bank address is optional
             'home_address' => ['nullable', 'string', 'max:255'], // Bank address is optional
             'bank_address' => ['nullable', 'string', 'max:255'], // Bank address is optional
-            'is_primary' => ['boolean'], // Expect a boolean value
         ]);
+
+        $validatedData['user_id'] = $user->id;
 
         // dd($validatedData); // Debugging line to check the validated data
 
         // Handle the 'is_primary' logic:
         // If the new account is set as primary, set all other accounts for this user to not primary.
-        if ($validatedData['is_primary']) {
-            BankAccount::where('user_id', $validatedData['user_id'])
-                       ->update(['is_primary' => false]);
-        }
 
         // Create the new bank account record
-        $bankAccount = BankAccount::create($validatedData);
+        $bankAccountRequests = ModelsBankAccountRequest::create($validatedData);
 
         // Return a response, typically a redirect back with a flash message for Inertia
-        return redirect()->route('accounts')
-        ->with('success', 'Bank account added successfully!')
-        ->with('accounts', $bankAccount);
+        return redirect()->route('wallet.index')
+        ->with('success', 'Bank account added successfully!');
 
     }
 

@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use App\Services\CryptoService;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 
 class AuthPagesController extends Controller
@@ -32,9 +34,43 @@ class AuthPagesController extends Controller
 
         // dd($cryptoData); // Keep for debugging if needed
 
+        $user = Auth::user();
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthenticated.'
+            ], 401);
+        }
+
+        // Now safe to use `load()`
+        // $user->load([
+        //     'portfolios',
+        //     'bankAccounts',
+        //     'bankAccountRequests',
+        //     'histories',
+        //     'notifications'
+        // ]);
+
+        // $user = Auth::user();
+
+
+        // Sum, cast to float, and format
+        $portfolioBalanceRaw = $user->portfolios->sum(function ($portfolio) {
+            return (float) $portfolio->balance;
+        });
+
+        // Format to 2 decimal places:
+        $balance = number_format($portfolioBalanceRaw, 2, '.', '');
+
+        // dd($user);
+
+
         return Inertia::render('dashboard', [
             // Pass the array to the frontend
-            'cryptoData' => $cryptoData
+            'cryptoData' => $cryptoData,
+            'users' => $user,
+            'portfolioBalance' => $balance
         ]);
     }
 
@@ -61,7 +97,55 @@ class AuthPagesController extends Controller
 
     public function makeTransactions()
     {
-        return Inertia::render('wallet/transactions');
+        // return ("hi");
+         $user = Auth::user();
+
+          $user->load([
+            'portfolios',
+            'bankAccounts',
+            'bankAccountRequests',
+            'histories',
+            'notifications'
+        ]);
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthenticated.'
+            ], 401);
+        }
+
+        // Sum, cast to float, and format
+        $portfolioBalanceRaw = $user->portfolios->sum(function ($portfolio) {
+            return (float) $portfolio->balance;
+        });
+
+        // Format to 2 decimal places:
+        $balance = number_format($portfolioBalanceRaw, 2, '.', '');
+
+         $bankAccounts = $user->bankAccounts->map(fn($acc) => [
+            'id'            => $acc->id,
+            'bank_name'     => $acc->bank_name,
+            'account_name'  => $acc->account_name,
+            'account_number'=> $acc->account_number,
+            'currency'      => $acc->currency,
+            'swift_code'    => $acc->swift_code,
+            'iban'          => $acc->iban,
+            'bank_address'  => $acc->bank_address,
+            'home_address'  => $acc->home_address,
+            'country'       => $acc->country,
+            'is_primary'    => (bool) $acc->is_primary,
+        ])->toArray();
+
+        // Now safe to use `load()`
+
+        // dd($bankAccounts);
+
+
+        return Inertia::render('wallet/transactions', [
+            'portfolioBalance' => $balance,
+            'bankAccounts'     => $bankAccounts,
+        ]);
     }
 
     public function investments()

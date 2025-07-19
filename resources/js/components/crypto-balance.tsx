@@ -1,3 +1,4 @@
+import { router } from '@inertiajs/react';
 import React, { useState, useEffect } from 'react';
 
 // 1. Define the interface for a single crypto item
@@ -178,6 +179,33 @@ const CryptoBalance: React.FC<CryptoBalanceProps> = ({ cryptoData }) => {
           </div>
         )}
       </div>
+
+      <div className="flex gap-2 pt-2 mt-3">
+             <button
+                //  onClick={() => router.visit('/wallet/transactions')}
+                 className="flex-1 rounded-lg bg-orange-500 px-4 py-2 text-white hover:bg-accent transition-colors"
+             >
+                 Live Trade
+             </button>
+             <button
+                //  onClick={() => router.visit('/wallet/transactions')}
+                 className="flex-1 rounded-lg bg-primary/10 px-4 py-2 text-white hover:bg-accent transition-colors"
+             >
+                 History
+             </button>
+             <button
+                 onClick={() => router.visit('/wallet/transactions')}
+                 className="flex-1 rounded-lg bg-blue-800 px-4 py-2 text-white hover:bg-accent transition-colors"
+             >
+                 Withdraw
+             </button>
+             <button
+                 onClick={() => router.visit('/wallet/transactions')}
+                 className="flex-1 rounded-lg bg-green-500 px-4 py-2 text-white hover:bg-accent transition-colors"
+             >
+                 Deposit
+             </button>
+         </div>
     </div>
   );
 };

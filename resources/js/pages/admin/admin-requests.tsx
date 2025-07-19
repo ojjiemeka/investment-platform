@@ -4,9 +4,10 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head } from '@inertiajs/react';
 import { Button } from '@headlessui/react';
-import { ChevronUp, Users } from 'lucide-react';
+import { AlertCircle, Building, ChevronUp, CreditCard, Users, UsersIcon } from 'lucide-react';
 import { useState } from 'react';
 import CustomTable from '@/components/admin-table';
+import DashboardStats from '@/components/dashboardStats';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -14,6 +15,43 @@ const breadcrumbs: BreadcrumbItem[] = [
         href: '/wallet/admin/requests',
     },
 ];
+
+
+interface PaginationLink {
+    url: string | null;
+    label: string;
+    active: boolean;
+}
+
+interface PaginationMeta {
+    current_page: number;
+    from: number;
+    last_page: number;
+    links: PaginationLink[];
+    path: string;
+    per_page: number;
+    to: number;
+    total: number;
+}
+interface PaginatedUsers {
+    // data: User[];
+    links: {
+        first: string | null;
+        last: string | null;
+        prev: string | null;
+        next: string | null;
+    };
+    meta: PaginationMeta;
+}
+interface AdminRequestProps {
+    users: PaginatedUsers;
+    totalUsersCount: number;
+    totalBankAccountsCount: number;
+    pendingRequestsCount: number;
+    totalPortfoliosCount?: number;
+    inactiveAccountsCount?: number;
+}
+
 
 // Employee statistics data
 const employeeStats = [
@@ -104,7 +142,13 @@ const employees = [
     },
 ];
 
-export default function AdminDashboard() {
+export default function AdminDashboard({
+    totalUsersCount = 0,
+    totalBankAccountsCount = 0,
+    pendingRequestsCount = 0,
+    totalPortfoliosCount,
+}: AdminRequestProps ) {
+    
     const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
 
     const toggleEmployee = (id: string) => {
@@ -143,30 +187,49 @@ export default function AdminDashboard() {
         </div>,
     ];
 
+    const dashboardStats = [
+        {
+            title: 'Total Users',
+            value: totalUsersCount.toLocaleString(),
+            change: '+47',
+            icon: UsersIcon,
+            positive: true,
+        },
+        {
+            title: 'Active Bank Accounts',
+            value: totalBankAccountsCount.toLocaleString(),
+            change: '+72',
+            icon: CreditCard,
+            positive: true,
+        },
+        {
+            title: 'Pending Requests',
+            value: pendingRequestsCount.toLocaleString(),
+            change: '-49',
+            icon: AlertCircle,
+            positive: false,
+        },
+        ...(totalPortfoliosCount !== undefined
+            ? [
+                  {
+                      title: 'Total Portfolios',
+                      value: totalPortfoliosCount.toLocaleString(),
+                      change: '+15',
+                      icon: Building,
+                      positive: true,
+                  },
+              ]
+            : []),
+    ];
+
+    console.log(' user:', totalUsersCount);
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Employee Management" />
             <div className="flex h-full flex-col gap-6 p-4 md:p-6">
-                {/* Employee Statistics Cards */}
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    {employeeStats.map((stat, index) => (
-                        <Card key={index} className="bg-white shadow-sm dark:bg-zinc-800">
-                            <CardContent className="p-4 md:p-6">
-                                <div className="flex items-start justify-between">
-                                    <div className="space-y-1 md:space-y-2">
-                                        <div className="flex items-baseline">
-                                            <span className="text-xl font-bold text-gray-900 md:text-2xl dark:text-gray-100">{stat.value}</span>
-                                        </div>
-                                        <p className="text-xs text-gray-500 md:text-sm dark:text-gray-400">{stat.title}</p>
-                                    </div>
-                                    <div className="rounded-lg bg-gray-100 p-2 dark:bg-gray-700">
-                                        <stat.icon className="h-4 w-4 text-gray-500 md:h-5 md:w-5 dark:text-gray-400" />
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    ))}
-                </div>
+                <DashboardStats stats={dashboardStats} />
+                
 
                 {/* Employee Table */}
                 <CustomTable

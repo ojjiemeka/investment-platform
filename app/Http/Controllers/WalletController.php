@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 
 class WalletController extends Controller
@@ -13,7 +14,21 @@ class WalletController extends Controller
      */
     public function index()
     {
-        return Inertia::render('wallet/index');
+        $user = Auth::user();
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthenticated.'
+            ], 401);
+        }
+
+        $bankAccounts = $user->bankAccounts;
+
+        return Inertia::render('wallet/index', [
+            'users' => $user,
+            'walletAccounts' => $bankAccounts
+        ]);
     }
 
     /**
