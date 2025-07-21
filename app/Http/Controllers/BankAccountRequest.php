@@ -58,7 +58,7 @@ class BankAccountRequest extends Controller
 
         $validatedData['user_id'] = $user->id;
 
-        // dd($validatedData); // Debugging line to check the validated data
+        dd($validatedData); // Debugging line to check the validated data
 
         // Handle the 'is_primary' logic:
         // If the new account is set as primary, set all other accounts for this user to not primary.

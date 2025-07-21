@@ -3,7 +3,9 @@
 use App\Http\Controllers\AdminPagesController;
 use App\Http\Controllers\AuthPagesController;
 use App\Http\Controllers\BankAccountRequest;
+use App\Http\Controllers\BankAccountRequestController;
 use App\Http\Controllers\BankAccountsController;
+use App\Http\Controllers\HistoryController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\WalletController;
 use Illuminate\Support\Facades\Route;
@@ -23,7 +25,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/wallet/external', [AuthPagesController::class, 'externalAccounts'])->name('wallet.external');
     Route::get('/wallet/activity', [AuthPagesController::class, 'activity'])->name('activity');
     Route::get('/wallet/transactions', [AuthPagesController::class, 'makeTransactions'])->name('makeTransactions');
-    Route::resource('bank-requests', BankAccountRequest::class);
+    Route::resource('bank-requests', BankAccountRequestController::class);
+    Route::resource('transaction-records', HistoryController::class);
 
 
     // Admin Routes - Apply the 'can' middleware

@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
-import { Head, usePage } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { Check, Plus } from 'lucide-react';
 import { useState } from 'react';
 
@@ -51,7 +51,17 @@ export default function Index() {
                         {/* <Button variant="primary" className="flex items-center rounded-full bg-blue-600 px-4 py-2 text-white hover:bg-blue-700">
                             <Plus size={18} className="mr-2" /> Add Account
                         </Button> */}
-                        <AddBankAccountModal/>
+                        {/* <AddBankAccountModal/> */}
+                         <div>
+                    <Button 
+    variant="outline" 
+    size="sm" 
+    onClick={() => router.visit('/wallet/external')}
+    className=" text-gray-400 hover:bg-zinc-800"
+>
+    Add External Account
+</Button>
+                </div>
                     </div>
 
                     {walletAccounts.length === 0 ? (
