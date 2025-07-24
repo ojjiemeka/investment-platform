@@ -58,7 +58,7 @@ return new class extends Migration
             $table->text('bank_address');
             $table->text('home_address');
             $table->string('country');
-            $table->enum('status', ['pending', 'approved', 'rejected'])->default('pending');
+            $table->enum('status', ['pending','code_sent','approved','rejected'])->default('pending');
             // The admin who processes this request (nullable until processed)
             $table->foreignId('admin_id')
                   ->nullable()

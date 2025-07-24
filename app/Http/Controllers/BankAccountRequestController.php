@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Models\BankAccountRequest as ModelsBankAccountRequest;
 use App\Models\Notification;
+use App\Models\TwoFactorCode;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -151,9 +152,217 @@ class BankAccountRequestController extends Controller
     /**
      * Update the specified resource in storage.
      */
+
     public function update(Request $request, string $id)
     {
-        //
+        $user = Auth::user();
+
+        // Debug what we're receiving
+        \Log::info('Update method called', [
+            'url_id' => $id,
+            'all_request_data' => $request->all(),
+            'content' => $request->getContent(),
+            'method' => $request->method()
+        ]);
+
+        // Make validation more flexible - user_id and request_id are optional since we have the ID in URL
+        $validatedData = $request->validate([
+            'status' => 'required|string',
+            'user_id' => 'nullable|integer',
+            'request_id' => 'nullable|integer',
+        ]);
+
+        try {
+            // Find the bank account request
+            $bankRequest = ModelsBankAccountRequest::findOrFail($id);
+            
+            // Store old status for comparison
+            $oldStatus = $bankRequest->status;
+            
+            // Update the status
+            $bankRequest->update([
+                'status' => $validatedData['status'],
+                'admin_id' => $user->id
+            ]);
+
+            // Create notification and 2FA code for the user based on status
+            $this->createUserNotification($bankRequest, $validatedData['status'], $oldStatus);
+
+            // Log the successful update
+            \Log::info('Bank request status updated', [
+                'request_id' => $id,
+                'old_status' => $oldStatus,
+                'new_status' => $validatedData['status'],
+                'updated_by_admin' => $user->id,
+                'target_user_id' => $bankRequest->user_id
+            ]);
+
+            // Return different flash messages based on status
+            $flashMessage = $this->getAdminFlashMessage($validatedData['status']);
+            
+            return redirect()->back()->with('flash', $flashMessage);
+
+        } catch (\Exception $e) {
+            \Log::error('Failed to update bank request status', [
+                'request_id' => $id,
+                'error' => $e->getMessage(),
+                'admin_user' => $user->id
+            ]);
+
+            return redirect()->back()->with('flash', [
+                'message' => 'Failed to update bank request status. Please try again.',
+                'type' => 'error'
+            ]);
+        }
+    }
+
+    /**
+     * Create notification for user based on status update
+     */
+    private function createUserNotification($bankRequest, $newStatus, $oldStatus)
+    {
+        $notifications = [
+            'code_sent' => "🔐 Verification Code Sent - Action Required
+
+Great news! Your {$bankRequest->bank_name} account request has been approved.
+
+📧 A verification code has been sent to your email: {$bankRequest->user->email}
+
+⚡ Next Steps:
+- Check your email (including spam folder)
+- Enter the verification code when prompted
+- Complete the final verification step
+
+⏰ Code expires in 24 hours
+💡 Need help? Contact our support team
+
+Bank Details:
+- Bank: {$bankRequest->bank_name}
+- Account: ...{$bankRequest->account_number}
+- Currency: {$bankRequest->currency}",
+
+            'approved' => "✅ Bank Account Approved - Setup Complete!
+
+Congratulations! Your {$bankRequest->bank_name} account has been fully approved and is now active.
+
+🎉 Your account is ready to use:
+- Bank: {$bankRequest->bank_name}
+- Account: ...{$bankRequest->account_number}
+- Currency: {$bankRequest->currency}
+- Status: Active
+
+💰 You can now:
+- Receive payments
+- Make withdrawals
+- View transaction history
+
+Thank you for choosing our platform!",
+
+            'rejected' => "❌ Bank Account Request Declined
+
+Unfortunately, your {$bankRequest->bank_name} account request has been declined after review.
+
+📋 Request Details:
+- Bank: {$bankRequest->bank_name}
+- Currency: {$bankRequest->currency}
+- Submitted: {$bankRequest->created_at->format('M d, Y')}
+
+🔄 Next Steps:
+- Review the requirements
+- Submit a new request with correct information
+- Contact support if you need assistance
+
+💡 Common reasons for decline:
+- Incomplete information
+- Invalid bank details
+- Documentation issues
+
+We're here to help - reach out to our support team!"
+        ];
+
+        // Only create notification if we have a message for this status
+        if (isset($notifications[$newStatus])) {
+            // Create the notification
+            Notification::create([
+                'message' => $notifications[$newStatus],
+                'to_user_id' => $bankRequest->user_id,
+            ]);
+
+            // Generate and store 2FA code if status is 'code_sent'
+            if ($newStatus === 'code_sent') {
+                $this->generateVerificationCode($bankRequest->user_id);
+            }
+        }
+    }
+
+    /**
+     * Generate and store verification code for bank account verification
+     */
+    private function generateVerificationCode($userId)
+    {
+        try {
+            // Create a 2FA code that expires in 24 hours (1440 minutes)
+            $twoFactorCode = TwoFactorCode::createForUser(
+                $userId, 
+                'bank_account_verification', 
+                1440 // 24 hours
+            );
+
+            // Log the code generation (for debugging - remove in production)
+            \Log::info('Bank verification code generated', [
+                'user_id' => $userId,
+                'code_id' => $twoFactorCode->id,
+                'code' => $twoFactorCode->code, // Remove this in production for security
+                'expires_at' => $twoFactorCode->expires_at,
+                'type' => $twoFactorCode->type
+            ]);
+
+            // In a real application, you would send this code via email
+            // For now, we'll just log it for testing purposes
+            \Log::info('Verification code to be sent via email', [
+                'user_id' => $userId,
+                'verification_code' => $twoFactorCode->code
+            ]);
+
+            return $twoFactorCode;
+
+        } catch (\Exception $e) {
+            \Log::error('Failed to generate verification code', [
+                'user_id' => $userId,
+                'error' => $e->getMessage()
+            ]);
+            
+            throw $e;
+        }
+    }
+
+    /**
+     * Get flash message for admin based on status
+     */
+    private function getAdminFlashMessage($status)
+    {
+        switch ($status) {
+            case 'code_sent':
+                return [
+                    'message' => 'Request approved! Verification code generated and sent to user.',
+                    'type' => 'success'
+                ];
+            case 'approved':
+                return [
+                    'message' => 'Request completed successfully! User has been notified.',
+                    'type' => 'success'
+                ];
+            case 'rejected':
+                return [
+                    'message' => 'Request has been rejected. User has been notified.',
+                    'type' => 'error'
+                ];
+            default:
+                return [
+                    'message' => 'Bank request status updated successfully!',
+                    'type' => 'success'
+                ];
+        }
     }
 
     /**

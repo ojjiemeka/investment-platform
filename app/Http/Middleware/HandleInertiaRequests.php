@@ -37,20 +37,32 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
-        [$message, $author] = str(Inspiring::quotes()->random())->explode('-');
-
-        return [
-            ...parent::share($request),
-            'name' => config('app.name'),
-            'quote' => ['message' => trim($message), 'author' => trim($author)],
+         return array_merge(parent::share($request), [
             'auth' => [
-                'user' => $request->user(),
+                'user' => $request->user() ? [
+                    'id' => $request->user()->id,
+                    'name' => $request->user()->name,
+                    'email' => $request->user()->email,
+                    'role' => $request->user()->role,
+                    'unread_notifications_count' => $request->user()
+                        ? $request->user()->notifications()
+                            ->where('created_at', '>=', now()->subHours(24))
+                            ->count()
+                        : 0,
+                ] : null,
             ],
-            'ziggy' => fn (): array => [
-                ...(new Ziggy)->toArray(),
-                'location' => $request->url(),
+            
+            // ADD THESE LINES to share flash messages
+            'flash' => [
+                'message' => fn () => $request->session()->get('flash.message'),
+                'type' => fn () => $request->session()->get('flash.type'),
             ],
-            'sidebarOpen' => $request->cookie('sidebar_state') === 'true',
-        ];
+            
+            // Alternative formats that might work
+            'success' => fn () => $request->session()->get('success'),
+            'error' => fn () => $request->session()->get('error'),
+            'message' => fn () => $request->session()->get('message'),
+        ]);
+    
     }
 }

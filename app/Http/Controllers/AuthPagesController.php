@@ -92,7 +92,28 @@ class AuthPagesController extends Controller
 
     public function activity()
     {
-        return Inertia::render('wallet/activity');
+        $user = Auth::user();
+
+         // Load user relationships
+        $user->load([
+            'portfolios',
+            'bankAccounts',
+            'bankAccountRequests',
+            'histories',
+            'notifications'
+        ]);
+
+         $notifications = $user->notifications()
+        ->select(['id', 'message', 'to_user_id', 'created_at', 'updated_at'])
+        ->orderBy('created_at', 'desc')
+        ->get()
+        ->toArray(); // Convert to array to see the exact structure
+
+        // dd($notifications);
+        
+        return Inertia::render('wallet/activity', [
+            'notifications' => $notifications
+        ]);
     }
 
     public function makeTransactions()

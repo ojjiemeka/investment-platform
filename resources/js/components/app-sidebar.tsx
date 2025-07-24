@@ -28,7 +28,7 @@ const adminNavItems: NavItem[] = [
   },
   {
     title: 'Portfoilios',
-    href: '/wallet/admin/requests',
+    href: '/wallet/admin/portfolios',
     icon: ChartCandlestick,
   },
   {

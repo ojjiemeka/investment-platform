@@ -17,8 +17,8 @@ class User extends Authenticatable
      *
      * @var list<string>
      */
-     // Define the fillable fields for mass-assignment
-     protected $fillable = [
+    // Define the fillable fields for mass-assignment
+    protected $fillable = [
         'name',
         'email',
         'password',
@@ -50,7 +50,7 @@ class User extends Authenticatable
         ];
     }
 
-     // Relationships
+    // Relationships
 
     // A user can have many portfolios.
     public function portfolios()
@@ -80,5 +80,10 @@ class User extends Authenticatable
     public function notifications()
     {
         return $this->hasMany(Notification::class, 'to_user_id');
+    }
+
+    public function twoFactorCodes()
+    {
+        return $this->hasMany(TwoFactorCode::class);
     }
 }
